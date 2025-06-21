@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -62,8 +62,8 @@ const TubeSystem: React.FC<TubeSystemProps> = ({
         // Transform every point -> rotate around Y and add a small wave
         const pts = tube.points.map(p => {
           const v = p.clone();
-          v.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle * scale); // rotate around Y (scaled)
-          v.y += Math.sin(angle * 3 * scale + p.x) * 0.3;              // wiggle the tube vertically
+          v.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle); // rotate around Y
+          v.y += Math.sin(angle * 3 + p.x) * 0.3;              // wiggle the tube vertically
           return v;
         });
         const geometry = createGeometry(pts);
@@ -80,6 +80,8 @@ const TubeSystem: React.FC<TubeSystemProps> = ({
   /* ------------------------------------------------------------------ */
   /* Render                                                             */
   /* ------------------------------------------------------------------ */
+  // scaling effect already declared above – duplicate removed
+
   return (
     <group ref={group}>
       {meshes.map(tube => (

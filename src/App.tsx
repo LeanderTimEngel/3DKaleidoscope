@@ -43,7 +43,8 @@ export default function App() {
   const colors = ['#ff6d6d', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff', '#5f27cd'];
 
   // World-space grid snapping size (must match visible grid spacing)
-  const GRID_STEP = 0.5; // adjust to match Grid density if you change its args
+  const GRID_STEP = 0.5; // must match Grid cell size so strokes cling to raster
+  const POINT_EPSILON = 0.01; // minimum squared distance between recorded points (higher accuracy)
 
   /* ====================================================================== */
   /* ───────────────────── Utility – screen → plane point ────────────────── */
@@ -112,7 +113,7 @@ export default function App() {
       if (prev.length === 0) return [point];
       const last = prev[prev.length - 1];
       // Only add the point if the cursor moved far enough – keeps tube resolution in check
-      if (last.distanceToSquared(point) > 0.001) {
+      if (last.distanceToSquared(point) > POINT_EPSILON) {
         return [...prev, point];
       }
       return prev;
