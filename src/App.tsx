@@ -8,7 +8,7 @@ import {
 } from '@react-three/drei';
 import { Suspense, useState, useRef, useCallback } from 'react';
 import * as THREE from 'three';
-import TubeSystem from './TubeSystem.tsx';
+import TubeSystem from './TubeSystem';
 
 export default function App() {
   const [tubes, setTubes] = useState<Array<{ points: THREE.Vector3[]; id: string; color: string }>>([]);
@@ -19,7 +19,8 @@ export default function App() {
   
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
-  const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+  const groundPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+  const drawPlaneRef = useRef<THREE.Plane | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera>(null!);
 
   const colors = ['#ff6d6d', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff', '#5f27cd'];
@@ -33,15 +34,26 @@ export default function App() {
     
     raycaster.current.setFromCamera(mouse.current, cameraRef.current);
     const intersectionPoint = new THREE.Vector3();
-    raycaster.current.ray.intersectPlane(plane.current, intersectionPoint);
+
+    // Use drawing plane if available, otherwise fallback to ground plane
+    (drawPlaneRef.current ?? groundPlane.current).intersectLine(
+      new THREE.Line3(raycaster.current.ray.origin, raycaster.current.ray.origin.clone().add(raycaster.current.ray.direction.clone().multiplyScalar(1000))),
+      intersectionPoint
+    );
     
     return intersectionPoint;
   }, []);
 
   const handlePointerDown = useCallback((event: React.PointerEvent) => {
     if (event.button === 0) { // Left click - start drawing
-      setIsDrawing(true);
       const point = getIntersectionPoint(event);
+      // Create a drawing plane perpendicular to camera through starting point
+      if (cameraRef.current) {
+        const planeNormal = cameraRef.current.getWorldDirection(new THREE.Vector3()).clone();
+        drawPlaneRef.current = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, point.clone());
+      }
+
+      setIsDrawing(true);
       setCurrentTube([point]);
     }
   }, [getIntersectionPoint]);
@@ -72,6 +84,7 @@ export default function App() {
         setTubes(prev => [...prev, newTube]);
       }
       setCurrentTube([]);
+      drawPlaneRef.current = null; // reset drawing plane
     }
   }, [isDrawing, currentTube, currentColor]);
 
