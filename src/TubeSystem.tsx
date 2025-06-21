@@ -39,6 +39,13 @@ const TubeSystem: React.FC<TubeSystemProps> = ({
   });
 
   /* ------------------------------------------------------------------ */
+  /* Apply uniform scaling whenever the slider changes                   */
+  /* ------------------------------------------------------------------ */
+  useEffect(() => {
+    group.current.scale.set(scale, scale, scale);
+  }, [scale]);
+
+  /* ------------------------------------------------------------------ */
   /* Helper – converts an array of points into a TubeGeometry            */
   /* ------------------------------------------------------------------ */
   const createGeometry = (pts: THREE.Vector3[]) => {
