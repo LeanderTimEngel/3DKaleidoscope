@@ -1,0 +1,105 @@
+/* Global styles for the 3D Kaleidoscope sketchpad */
+
+html, body, #root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #111; /* fallback – actual scene background is set in <Canvas> */
+  font-family: 'Inter', sans-serif;
+}
+
+/* == Control panel (glass-morphism) =========================== */
+.controls {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  padding: 20px 28px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px) saturate(160%);
+
+  color: #fff;
+  text-align: center;
+  user-select: none;
+  z-index: 1000;
+}
+
+.controls h1 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.controls p {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.8;
+  line-height: 1.4em;
+}
+
+/* slider */
+.slider-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px auto 12px;
+  max-width: 260px;
+}
+
+.slider-wrapper span {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.slider-wrapper input[type="range"] {
+  flex: 1 1 auto;
+  accent-color: #0070f3;
+}
+
+/* colour palette */
+.colors {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.color-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.color-btn:hover {
+  transform: scale(1.1);
+}
+
+.color-btn.active {
+  border-color: #fff;
+  transform: scale(1.2);
+}
+
+/* clear button */
+.btn-clear {
+  background: #ff4757;
+  color: #fff;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-clear:hover {
+  background: #ff6b81;
+} 

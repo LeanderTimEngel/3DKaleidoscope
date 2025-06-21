@@ -9,6 +9,7 @@ interface TubeSystemProps {
   scale: number;
 }
 
+/* Angles (in radians) used to mirror every stroke and create the 6-fold kaleidoscope */
 const reflectionAngles = [
   0,
   Math.PI / 3,
@@ -18,36 +19,51 @@ const reflectionAngles = [
   (5 * Math.PI) / 3,
 ];
 
+/**
+ * Renders all tubes (finished + currently drawn) and applies the kaleidoscope mirroring.
+ */
 const TubeSystem: React.FC<TubeSystemProps> = ({
   tubes,
   currentTube,
   isDrawing,
   scale,
 }) => {
+  // Ref to the group so we can apply a subtle auto-rotation
   const group = useRef<THREE.Group>(null!);
 
-  /* sanfte Rotation – das Auge spürt sofort Raumtiefe */
+  /* ------------------------------------------------------------------ */
+  /* Animation – slow Y rotation gives a sense of depth                  */
+  /* ------------------------------------------------------------------ */
   useFrame((_, dt) => {
     group.current.rotation.y += dt * 0.1;
   });
 
+  /* ------------------------------------------------------------------ */
+  /* Helper – converts an array of points into a TubeGeometry            */
+  /* ------------------------------------------------------------------ */
   const createGeometry = (pts: THREE.Vector3[]) => {
-    if (pts.length < 2) return null;
+    if (pts.length < 2) return null; // needs at least 2 points
     const curve = new THREE.CatmullRomCurve3(pts);
     return new THREE.TubeGeometry(curve, 128, 0.15, 12, false);
   };
 
+  /* ------------------------------------------------------------------ */
+  /* Memoised list of meshes – recalculates only when dependencies change*/
+  /* ------------------------------------------------------------------ */
   const meshes = useMemo(() => {
-    const src = isDrawing && currentTube.length > 1
+    // When drawing, we append a temporary tube so the user sees it live
+    const source = isDrawing && currentTube.length > 1
       ? [...tubes, { points: currentTube, id: 'current', color: '#fff' }]
       : tubes;
 
-    return src.flatMap(tube =>
+    // Create mirrored versions for every angle
+    return source.flatMap(tube =>
       reflectionAngles.map((angle, i) => {
+        // Transform every point -> rotate around Y and add a small wave
         const pts = tube.points.map(p => {
           const v = p.clone();
-          v.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle * scale);         // Y-Achse mit Scale
-          v.y += Math.sin(angle * 3 * scale + p.x) * 0.3;                      // 3D-Welle mit Scale
+          v.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle * scale); // rotate around Y (scaled)
+          v.y += Math.sin(angle * 3 * scale + p.x) * 0.3;              // wiggle the tube vertically
           return v;
         });
         const geometry = createGeometry(pts);
@@ -55,12 +71,15 @@ const TubeSystem: React.FC<TubeSystemProps> = ({
           geometry,
           color: tube.color,
           key: `${tube.id}-${i}`,
-          opacity: i === 0 ? 1 : 0.6,
+          opacity: i === 0 ? 1 : 0.6, // original stroke fully opaque, reflections semi-transparent
         };
       }).filter(Boolean)
     );
   }, [tubes, currentTube, isDrawing, scale]);
 
+  /* ------------------------------------------------------------------ */
+  /* Render                                                             */
+  /* ------------------------------------------------------------------ */
   return (
     <group ref={group}>
       {meshes.map(tube => (
