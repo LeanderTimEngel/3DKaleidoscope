@@ -82,7 +82,7 @@ const TubeSystem: React.FC<TubeSystemProps> = ({
         };
       }).filter(Boolean)
     );
-  }, [tubes, currentTube, isDrawing, scale]);
+  }, [tubes, currentTube, isDrawing]);
 
   /* ------------------------------------------------------------------ */
   /* Render                                                             */
