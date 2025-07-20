@@ -10,10 +10,11 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@react-three/drei": "^9.88.0",
+    "@react-three/fiber": "^8.15.0",
+    "@react-three/postprocessing": "^3.0.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@react-three/fiber": "^8.15.0",
-    "@react-three/drei": "^9.88.0",
     "three": "^0.177.0"
   },
   "devDependencies": {
@@ -29,4 +30,4 @@
     "typescript": "^5.0.0",
     "vite": "^4.4.0"
   }
-} 
+}

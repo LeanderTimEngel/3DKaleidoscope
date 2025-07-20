@@ -6,9 +6,11 @@ import {
   Grid,
   ContactShadows,
 } from '@react-three/drei';
+// import { EffectComposer, Bloom, DepthOfField } from '@react-three/postprocessing';
 import { Suspense, useState, useRef, useCallback } from 'react';
 import * as THREE from 'three';
-import TubeSystem from './TubeSystem';
+import TubeSystem, { TubeData } from './TubeSystem';
+import ParticleSystem from './ParticleSystem';
 
 /**
  * Main application component – handles UI, drawing logic and renders the Three.js scene.
@@ -19,7 +21,7 @@ export default function App() {
   /* ====================================================================== */
 
   // All finished tubes the user already drew
-  const [tubes, setTubes] = useState<Array<{ points: THREE.Vector3[]; id: string; color: string }>>([]);
+  const [tubes, setTubes] = useState<TubeData[]>([]);
   // Points of the tube currently being drawn
   const [currentTube, setCurrentTube] = useState<THREE.Vector3[]>([]);
   // Whether the user is currently drawing (left-mouse button pressed)
@@ -28,6 +30,15 @@ export default function App() {
   const [scale, setScale] = useState(1.0);
   // Active colour used for the next stroke
   const [currentColor, setCurrentColor] = useState('#ff6d6d');
+  
+  // New features
+  const [symmetryMode, setSymmetryMode] = useState<'none' | '4fold' | '6fold' | '8fold' | 'mandala'>('6fold');
+  const [currentMaterial, setCurrentMaterial] = useState<'standard' | 'metallic' | 'glass' | 'emissive'>('standard');
+  const [currentThickness, setCurrentThickness] = useState(0.15);
+  const [currentStyle, setCurrentStyle] = useState<'solid' | 'dotted' | 'dashed' | 'spiral'>('solid');
+  const [enablePostProcessing, setEnablePostProcessing] = useState(false);
+  const [currentPoint, setCurrentPoint] = useState<THREE.Vector3 | null>(null);
+  const [eraserMode, setEraserMode] = useState(false);
 
   /* ====================================================================== */
   /* ───────────────────────── Three.js helpers ─────────────────────────── */
@@ -88,11 +99,21 @@ export default function App() {
   /* ──────────────────────────── Handlers ──────────────────────────────── */
   /* ====================================================================== */
 
-  /** Left mouse down – start drawing a new tube */
+  /** Left mouse down – start drawing a new tube or erasing */
   const handlePointerDown = useCallback((event: React.PointerEvent) => {
     if (event.button !== 0) return; // ignore non-left clicks
 
     const startPoint = getIntersectionPoint(event);
+    setCurrentPoint(startPoint);
+
+    if (eraserMode) {
+      // Find and remove nearby tubes
+      const tolerance = 0.5;
+      setTubes(prev => prev.filter(tube => 
+        !tube.points.some(point => point.distanceTo(startPoint) < tolerance)
+      ));
+      return;
+    }
 
     // Create a temporary drawing plane perpendicular to the camera through the start point
     if (cameraRef.current) {
@@ -102,13 +123,15 @@ export default function App() {
 
     setCurrentTube([startPoint]);
     setIsDrawing(true);
-  }, [getIntersectionPoint]);
+  }, [getIntersectionPoint, eraserMode]);
 
   /** Mouse move – append points while user is drawing */
   const handlePointerMove = useCallback((event: React.PointerEvent) => {
-    if (!isDrawing || event.buttons !== 1) return;
-
     const point = getIntersectionPoint(event);
+    setCurrentPoint(point);
+
+    if (!isDrawing || event.buttons !== 1 || eraserMode) return;
+
     setCurrentTube(prev => {
       if (prev.length === 0) return [point];
       const last = prev[prev.length - 1];
@@ -118,19 +141,22 @@ export default function App() {
       }
       return prev;
     });
-  }, [isDrawing, getIntersectionPoint]);
+  }, [isDrawing, getIntersectionPoint, eraserMode]);
 
   /** Left mouse up – commit the current tube */
   const handlePointerUp = useCallback((event: React.PointerEvent) => {
-    if (event.button !== 0 || !isDrawing) return;
+    if (event.button !== 0 || !isDrawing || eraserMode) return;
 
     setIsDrawing(false);
 
     if (currentTube.length > 1) {
-      const newTube = {
+      const newTube: TubeData = {
         id: `tube-${Date.now()}`,
         color: currentColor,
         points: [...currentTube],
+        material: currentMaterial,
+        thickness: currentThickness,
+        style: currentStyle,
       };
       setTubes(prev => [...prev, newTube]);
     }
@@ -138,7 +164,7 @@ export default function App() {
     // clear temporary data
     setCurrentTube([]);
     drawPlaneRef.current = null;
-  }, [isDrawing, currentTube, currentColor]);
+  }, [isDrawing, currentTube, currentColor, currentMaterial, currentThickness, currentStyle, eraserMode]);
 
   /** Disable default context menu so right-click rotates camera */
   const handleContextMenu = useCallback((e: React.MouseEvent) => e.preventDefault(), []);
@@ -158,12 +184,76 @@ export default function App() {
     <div style={{ width: '100%', height: '100%' }}>
       {/* =============================== UI / HUD =============================== */}
       <div className="controls">
-        <h1>Kaleidoscope Demo</h1>
+        <h1>Enhanced Kaleidoscope</h1>
         <p>
-          <em>Left-click &amp; drag</em> to draw tubes (with sparks!)<br />
+          <em>Left-click &amp; drag</em> to draw tubes<br />
           <em>Right-click &amp; drag</em> to rotate camera<br />
           <em>Middle-click</em> to zoom
         </p>
+
+        {/* -------- Tool Mode -------- */}
+        <div className="tool-mode">
+          <button 
+            className={`mode-btn ${!eraserMode ? 'active' : ''}`}
+            onClick={() => setEraserMode(false)}
+          >
+            Draw
+          </button>
+          <button 
+            className={`mode-btn ${eraserMode ? 'active' : ''}`}
+            onClick={() => setEraserMode(true)}
+          >
+            Erase
+          </button>
+        </div>
+
+        {/* -------- Symmetry Mode -------- */}
+        <div className="symmetry-controls">
+          <span>Symmetry:</span>
+          <select value={symmetryMode} onChange={(e) => setSymmetryMode(e.target.value as any)}>
+            <option value="none">None</option>
+            <option value="4fold">4-Fold</option>
+            <option value="6fold">6-Fold</option>
+            <option value="8fold">8-Fold</option>
+            <option value="mandala">Mandala</option>
+          </select>
+        </div>
+
+        {/* -------- Material Type -------- */}
+        <div className="material-controls">
+          <span>Material:</span>
+          <select value={currentMaterial} onChange={(e) => setCurrentMaterial(e.target.value as any)}>
+            <option value="standard">Standard</option>
+            <option value="metallic">Metallic</option>
+            <option value="glass">Glass</option>
+            <option value="emissive">Emissive</option>
+          </select>
+        </div>
+
+        {/* -------- Brush Style -------- */}
+        <div className="style-controls">
+          <span>Style:</span>
+          <select value={currentStyle} onChange={(e) => setCurrentStyle(e.target.value as any)}>
+            <option value="solid">Solid</option>
+            <option value="dotted">Dotted</option>
+            <option value="dashed">Dashed</option>
+            <option value="spiral">Spiral</option>
+          </select>
+        </div>
+
+        {/* -------- Thickness slider -------- */}
+        <div className="slider-wrapper">
+          <span>Thickness:</span>
+          <input
+            type="range"
+            min="0.05"
+            max="0.5"
+            step="0.05"
+            value={currentThickness}
+            onChange={(e) => setCurrentThickness(parseFloat(e.target.value))}
+          />
+          <span>{currentThickness.toFixed(2)}</span>
+        </div>
 
         {/* -------- scale slider -------- */}
         <div className="slider-wrapper">
@@ -191,6 +281,18 @@ export default function App() {
           ))}
         </div>
 
+        {/* -------- Effects Toggle -------- */}
+        <div className="effects-toggle">
+          <label>
+            <input
+              type="checkbox"
+              checked={enablePostProcessing}
+              onChange={(e) => setEnablePostProcessing(e.target.checked)}
+            />
+            Post-Processing Effects (disabled - fixing compatibility)
+          </label>
+        </div>
+
         {/* -------- clear button -------- */}
         <button className="btn-clear" onClick={clearAll}>Clear</button>
       </div>
@@ -204,7 +306,7 @@ export default function App() {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onContextMenu={handleContextMenu}
-        style={{ cursor: isDrawing ? 'crosshair' : 'default' }}
+        style={{ cursor: isDrawing ? 'crosshair' : eraserMode ? 'not-allowed' : 'default' }}
       >
         {/* Scene background colour */}
         <color attach="background" args={["#111"]} />
@@ -236,6 +338,18 @@ export default function App() {
             currentTube={currentTube}
             isDrawing={isDrawing}
             scale={scale}
+            symmetryMode={symmetryMode}
+            currentMaterial={currentMaterial}
+            currentThickness={currentThickness}
+            currentStyle={currentStyle}
+            currentColor={currentColor}
+          />
+          
+          {/* -------------- Particle System -------------- */}
+          <ParticleSystem
+            isDrawing={isDrawing}
+            currentPoint={currentPoint}
+            color={currentColor}
           />
         </Suspense>
 
@@ -244,6 +358,22 @@ export default function App() {
           enablePan={false}
           mouseButtons={{ LEFT: undefined, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }}
         />
+
+        {/* -------------- Post-Processing Effects (disabled for now) -------------- */}
+        {/* {enablePostProcessing && (
+          <EffectComposer>
+            <Bloom 
+              intensity={0.5} 
+              luminanceThreshold={0.4} 
+              luminanceSmoothing={0.3} 
+            />
+            <DepthOfField 
+              focusDistance={0.1} 
+              focalLength={0.05} 
+              bokehScale={3} 
+            />
+          </EffectComposer>
+        )} */}
       </Canvas>
     </div>
   );
